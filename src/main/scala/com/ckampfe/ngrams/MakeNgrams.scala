@@ -2,6 +2,7 @@ package com.ckampfe.ngrams
 
 import java.io.{PrintWriter, File}
 
+import scala.collection.immutable.Iterable
 import scala.concurrent.{Promise, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.io.{BufferedSource, Source}
@@ -16,24 +17,25 @@ object MakeNgrams {
   val trigrams = Sentence.ngrams(3) _
 
   def parseSentencesForFiles(
-    filesList: List[String])(f: List[(Future[Map[Symbol, Seq[Seq[Symbol]]]], String)] => Unit
+    filesList: List[String])(f: List[(Future[Map[Symbol, Seq[(Seq[Symbol], Int)]]], String)] => Unit
   ): Unit = {
     val inputs: List[BufferedSource] = filesList.map { fileName => Source.fromFile(fileName) }
 
-    val fileSentences: List[Future[Map[Symbol, Seq[Seq[Symbol]]]]] = inputs.map { file =>
+    val fileSentences: List[Future[Map[Symbol, Seq[(Seq[Symbol], Int)]]]] = inputs.map { file =>
       makeFileString(file).
         flatMap(makeSentenceParser).
         flatMap(parseDocument).
         flatMap(makeNgrams).
-        flatMap(groupNgramsByFirstWord)
+        flatMap(groupNgramsByFirstWord).
+        flatMap(tallyOccurrences).
+        flatMap(sortOccurrences)
     }
 
-    val sentenceFilenamePairs: List[(Future[Map[Symbol, Seq[Seq[Symbol]]]], String)] =
+    val sentenceFilenamePairs: List[(Future[Map[Symbol, Seq[(Seq[Symbol], Int)]]], String)] =
       fileSentences.zip(filesList)
 
     f(sentenceFilenamePairs)
   }
-
 
   def makeFileString(inFile: BufferedSource): Future[String] = Future { inFile.mkString }
 
@@ -53,6 +55,20 @@ object MakeNgrams {
     Sentence.groupByWord(ngrams)
   }
 
+  def tallyOccurrences(
+    ngramGroups: Map[Symbol, Seq[Seq[Symbol]]]
+  ): Future[Map[Symbol, Seq[(Seq[Symbol], Int)]]] = Future {
+    ngramGroups.mapValues { ngramTails =>
+      ngramTails.groupBy { x => x }.map { (y: (Seq[Symbol], Seq[Seq[Symbol]])) =>
+        (y._1, y._2.length)
+      }.toSeq
+    }
+  }
+
+  def sortOccurrences(ngramGroups: Map[Symbol, Seq[(Seq[Symbol], Int)]]) = Future {
+    ngramGroups.mapValues { ngramGroup => ngramGroup.sortBy(_._2).reverse }
+  }
+
   def writeFragment(fragment: Seq[_], writer: PrintWriter): Unit = Future {
     fragment.mkString(" ") + "\n"
   } andThen {
@@ -66,11 +82,10 @@ object MakeNgrams {
     parseSentencesForFiles(filesList) { sentencesWithFilenames =>
       sentencesWithFilenames.map { sentencesWithFilename =>
         sentencesWithFilename._1 andThen {
-          case Success(gramGroup) =>
-            gramGroup.foreach { case (w, ws) =>
-              println("---------------")
-              println(s"WORD GROUP FOR: ${w.name}")
-              ws.map(syms => syms.map(sym => sym.name)).foreach(println)
+          case Success(ngramGroup) =>
+            ngramGroup.foreach { case (nhead, ntail) =>
+              println(s"WORD GROUP FOR: ${nhead.name}")
+              ntail.foreach{ syms => println(s"${syms._1}: ${syms._2}") }
               println("---------------")
             }
             //val frontWriter = new PrintWriter(new File(sentencesWithFilename.fileName + "-front"))

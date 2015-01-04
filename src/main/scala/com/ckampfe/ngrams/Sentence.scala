@@ -1,10 +1,5 @@
 package com.ckampfe.ngrams
 
-// class Sentence[A](sn: Seq[A]) {
-//   def front: Seq[A] = sn.slice(0, (sn.length / 2))
-//   def back:  Seq[A] = sn.slice((sn.length / 2), sn.length)
-// }
-
 object Sentence {
   /**
    *
@@ -27,5 +22,4 @@ object Sentence {
     ngrams.groupBy(_.head).map { gramMap =>
       (gramMap._1, gramMap._2.map(_.tail))
     }
-
 }
