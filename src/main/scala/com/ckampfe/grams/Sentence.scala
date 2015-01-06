@@ -8,18 +8,18 @@ object Sentence {
    * @tparam A Underlying input type
    * @return A collection of symbol ngrams of size n
    */
-  def ngrams[A](n: Int)(sentence: Seq[A]): Vector[Seq[Symbol]] = sentence.map { word =>
+  def ngrams[A](n: Int)(sentence: List[A]): List[List[Symbol]] = sentence.map { word =>
     Symbol(word.toString)
-  }.sliding(n).toVector
+  }.sliding(n).toList
 
-  /** aggregate ngrams by their first word, and then all following for that first word
+  /**
     *
     * @param ngrams A collection of ngrams
     * @tparam A The underlying ngram type
-    * @return A map of ngram heads to a collection of collections of their tails
+    * @return A map of ngram heads to a collection of member ngrams
     */
-  def groupByFirstWord[A](ngrams: Seq[Seq[A]]): Map[A, Seq[Seq[A]]] =
-    ngrams.groupBy(_.head).map { gramMap =>
-      (gramMap._1, gramMap._2.map(_.tail))
+  def groupByFirstWord[A](ngrams: List[List[A]]): Map[A, List[List[A]]] =
+    ngrams.groupBy(_.head).map { case (headWord, ngram) =>
+      (headWord, ngram)
     }
 }

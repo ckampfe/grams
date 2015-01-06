@@ -12,15 +12,17 @@ import scala.util.{Failure, Success}
  */
 object MakeNgrams {
 
-  val bigrams = Sentence.ngrams(2) _
+  val bigrams  = Sentence.ngrams(2) _
   val trigrams = Sentence.ngrams(3) _
 
-  def parseSentencesForFiles(
-    filesList: List[String])(f: List[(Future[Map[Symbol, Seq[(Seq[Symbol], Int)]]], String)] => Unit
+  def run(
+    filesList: List[String]
+  )(
+    f: List[(Future[Map[Symbol, List[(List[Symbol], Int)]]], String)] => Unit
   ): Unit = {
     val inputs: List[BufferedSource] = filesList.map { fileName => Source.fromFile(fileName) }
 
-    val ngrams: List[Future[Map[Symbol, Seq[(Seq[Symbol], Int)]]]] = inputs.map { file =>
+    val ngrams: List[Future[Map[Symbol, List[(List[Symbol], Int)]]]] = inputs.map { file =>
       makeFileString(file).
         flatMap(makeSentenceParser).
         flatMap(parseDocument).
@@ -30,7 +32,7 @@ object MakeNgrams {
         flatMap(sortOccurrences)
     }
 
-    val sentenceFilenamePairs: List[(Future[Map[Symbol, Seq[(Seq[Symbol], Int)]]], String)] =
+    val sentenceFilenamePairs: List[(Future[Map[Symbol, List[(List[Symbol], Int)]]], String)] =
       ngrams.zip(filesList)
 
     f(sentenceFilenamePairs)
@@ -42,33 +44,35 @@ object MakeNgrams {
     SentenceParser(fileString)
   }
 
-  def parseDocument(sentenceParser: SentenceParser): Future[Vector[Vector[String]]] = Future {
+  def parseDocument(sentenceParser: SentenceParser): Future[List[List[String]]] = Future {
     sentenceParser.parsedWords
   }
 
-  def makeNgrams(sentences: Seq[Seq[String]]): Future[Seq[Seq[Symbol]]] = Future {
+  def makeNgrams(sentences: List[List[String]]): Future[List[List[Symbol]]] = Future {
     sentences.flatMap(trigrams)
   }
 
-  def groupNgramsByFirstWord(ngrams: Seq[Seq[Symbol]]): Future[Map[Symbol, Seq[Seq[Symbol]]]] = Future {
+  def groupNgramsByFirstWord(ngrams: List[List[Symbol]]): Future[Map[Symbol, List[List[Symbol]]]] = Future {
     Sentence.groupByFirstWord(ngrams)
   }
 
   def tallyOccurrences(
-    ngramGroups: Map[Symbol, Seq[Seq[Symbol]]]
-  ): Future[Map[Symbol, Seq[(Seq[Symbol], Int)]]] = Future {
-    ngramGroups.mapValues { ngramTails =>
-      ngramTails.groupBy { x => x }.map { (y: (Seq[Symbol], Seq[Seq[Symbol]])) =>
-        (y._1, y._2.length)
-      }.toSeq
+    ngramGroups: Map[Symbol, List[List[Symbol]]]
+  ): Future[Map[Symbol, List[(List[Symbol], Int)]]] = Future {
+    ngramGroups.mapValues { ngrams =>
+      ngrams.groupBy{ ngram => ngram }.map { case (headWord, ngramGroup) =>
+        (headWord, ngramGroup.length)
+      }.toList
     }
   }
 
-  def sortOccurrences(ngramGroups: Map[Symbol, Seq[(Seq[Symbol], Int)]]) = Future {
-    ngramGroups.mapValues { ngramGroup => ngramGroup.sortBy(_._2).reverse }
+  def sortOccurrences(ngramGroups: Map[Symbol, List[(List[Symbol], Int)]]) = Future {
+    ngramGroups.mapValues { ngramGroup =>
+      ngramGroup.sortBy(_._2).reverse
+    }
   }
 
-  def writeFragment(fragment: Seq[_], writer: PrintWriter): Unit = Future {
+  def writeFragment(fragment: List[_], writer: PrintWriter): Unit = Future {
     fragment.mkString(" ") + "\n"
   } andThen {
     case Success(fragment) => writer.write(fragment)
@@ -78,13 +82,17 @@ object MakeNgrams {
 
     val filesList = args.toList
 
-    parseSentencesForFiles(filesList) { sentencesWithFilenames =>
+    run(filesList) { sentencesWithFilenames =>
       sentencesWithFilenames.map { sentencesWithFilename =>
         sentencesWithFilename._1 andThen {
           case Success(ngramGroup) =>
-            ngramGroup.foreach { case (ngramHead, ngramTail) =>
-              println(s"WORD GROUP FOR: ${ngramHead.name}")
-              ngramTail.foreach{ syms => println(s"${syms._1}: ${syms._2}") }
+            ngramGroup.foreach { case (headWord, ngram) =>
+              println(s"WORD GROUP FOR: ${headWord.name}")
+
+              ngram.foreach { case (words, occurrences) =>
+                println(s"${words}: ${occurrences}")
+              }
+
               println("---------------")
             }
             //val frontWriter = new PrintWriter(new File(sentencesWithFilename.fileName + "-front"))

@@ -30,11 +30,11 @@ class SentenceParser(inputText: String) {
 
   pipeline.annotate(document)
 
-  lazy val sentences: Vector[CoreMap] = document.get(classOf[SentencesAnnotation]).toVector
+  lazy val sentences: List[CoreMap] = document.get(classOf[SentencesAnnotation]).toList
 
 
-  lazy val parsedWords: Vector[Vector[String]] = sentences.map { sentence =>
-    sentence.get(classOf[TokensAnnotation]).toVector.map { token =>
+  lazy val parsedWords: List[List[String]] = sentences.map { sentence =>
+    sentence.get(classOf[TokensAnnotation]).toList.map { token =>
       // println(token)
       val word = token.get(classOf[TextAnnotation])
       val pos = token.get(classOf[PartOfSpeechAnnotation])
