@@ -1,4 +1,4 @@
-package com.ckampfe.ngrams
+package com.ckampfe.grams
 
 object ParseSentences {
   def main(args: Array[String]): Unit = {

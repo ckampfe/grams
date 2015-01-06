@@ -1,4 +1,4 @@
-name := "ngrams"
+name := "grams"
 
 scalaVersion := "2.11.4"
 

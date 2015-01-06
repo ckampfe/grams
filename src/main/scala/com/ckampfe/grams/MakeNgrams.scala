@@ -1,12 +1,11 @@
-package com.ckampfe.ngrams
+package com.ckampfe.grams
 
 import java.io.{PrintWriter, File}
 
-import scala.collection.immutable.Iterable
-import scala.concurrent.{Promise, Future}
+import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.io.{BufferedSource, Source}
-import scala.util.{Failure, Try, Success}
+import scala.util.{Failure, Success}
 
 /**
  * Created by clark on 12/21/14.
@@ -21,7 +20,7 @@ object MakeNgrams {
   ): Unit = {
     val inputs: List[BufferedSource] = filesList.map { fileName => Source.fromFile(fileName) }
 
-    val fileSentences: List[Future[Map[Symbol, Seq[(Seq[Symbol], Int)]]]] = inputs.map { file =>
+    val ngrams: List[Future[Map[Symbol, Seq[(Seq[Symbol], Int)]]]] = inputs.map { file =>
       makeFileString(file).
         flatMap(makeSentenceParser).
         flatMap(parseDocument).
@@ -32,7 +31,7 @@ object MakeNgrams {
     }
 
     val sentenceFilenamePairs: List[(Future[Map[Symbol, Seq[(Seq[Symbol], Int)]]], String)] =
-      fileSentences.zip(filesList)
+      ngrams.zip(filesList)
 
     f(sentenceFilenamePairs)
   }
@@ -83,9 +82,9 @@ object MakeNgrams {
       sentencesWithFilenames.map { sentencesWithFilename =>
         sentencesWithFilename._1 andThen {
           case Success(ngramGroup) =>
-            ngramGroup.foreach { case (nhead, ntail) =>
-              println(s"WORD GROUP FOR: ${nhead.name}")
-              ntail.foreach{ syms => println(s"${syms._1}: ${syms._2}") }
+            ngramGroup.foreach { case (ngramHead, ngramTail) =>
+              println(s"WORD GROUP FOR: ${ngramHead.name}")
+              ngramTail.foreach{ syms => println(s"${syms._1}: ${syms._2}") }
               println("---------------")
             }
             //val frontWriter = new PrintWriter(new File(sentencesWithFilename.fileName + "-front"))
