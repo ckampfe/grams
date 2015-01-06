@@ -23,9 +23,7 @@ import java.util.Properties
 class SentenceParser(inputText: String) {
   val props = new Properties
 
-  //props.put("annotators", "tokenize, ssplit, pos, lemma, ner, parse, dcoref")
   props.put("annotators", "tokenize, ssplit, pos")
-  // props.put("tokenize.whitespace", "true")
 
   val pipeline = new StanfordCoreNLP(props)
   val document = new Annotation(inputText)
@@ -36,7 +34,6 @@ class SentenceParser(inputText: String) {
 
 
   lazy val parsedWords: Vector[Vector[String]] = sentences.map { sentence =>
-    // to words
     sentence.get(classOf[TokensAnnotation]).toVector.map { token =>
       // println(token)
       val word = token.get(classOf[TextAnnotation])
@@ -45,11 +42,6 @@ class SentenceParser(inputText: String) {
 
       word
     }
-
-    // val tree = sentence.get(classOf[TreeAnnotation])
-    // val dependencies = sentence.get(classOf[CollapsedCCProcessedDependenciesAnnotation])
-
-    //, tree, dependencies)
   }
 
   val graph = document.get(classOf[CorefChainAnnotation])

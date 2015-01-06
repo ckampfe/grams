@@ -18,7 +18,7 @@ object Sentence {
     * @tparam A The underlying ngram type
     * @return A map of ngram heads to a collection of collections of their tails
     */
-  def groupByWord[A](ngrams: Seq[Seq[A]]): Map[A, Seq[Seq[A]]] =
+  def groupByFirstWord[A](ngrams: Seq[Seq[A]]): Map[A, Seq[Seq[A]]] =
     ngrams.groupBy(_.head).map { gramMap =>
       (gramMap._1, gramMap._2.map(_.tail))
     }

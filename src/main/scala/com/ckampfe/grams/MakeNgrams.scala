@@ -51,7 +51,7 @@ object MakeNgrams {
   }
 
   def groupNgramsByFirstWord(ngrams: Seq[Seq[Symbol]]): Future[Map[Symbol, Seq[Seq[Symbol]]]] = Future {
-    Sentence.groupByWord(ngrams)
+    Sentence.groupByFirstWord(ngrams)
   }
 
   def tallyOccurrences(
