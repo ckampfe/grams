@@ -72,6 +72,13 @@ object MakeNgrams {
     }
   }
 
+  def stripExtension(file: String): (String, String, String) = {
+    val re = """(.*/)??([\w-_]+)\.*(.*)""".r
+    file match {
+      case re(path, fileName, extensions) => (path, fileName, extensions)
+    }
+  }
+
   def writeFragment(fragment: List[_], writer: PrintWriter): Unit = Future {
     fragment.mkString(" ") + "\n"
   } andThen {
@@ -82,29 +89,27 @@ object MakeNgrams {
 
     val filesList = args.toList
 
-    run(filesList) { sentencesWithFilenames =>
-      sentencesWithFilenames.map { sentencesWithFilename =>
-        sentencesWithFilename._1 andThen {
-          case Success(ngramGroup) =>
-            ngramGroup.foreach { case (headWord, ngram) =>
-              println(s"WORD GROUP FOR: ${headWord.name}")
+    run(filesList) { ngramGroupsAndFiles =>
+      ngramGroupsAndFiles.map { ngramGroupsAndFile =>
+        ngramGroupsAndFile._1 andThen {
+          case Success(groups) =>
+
+            // creating output file and writer
+            val (path, fileName, extension) = stripExtension(ngramGroupsAndFile._2)
+            val writer = new PrintWriter(new File(path + fileName + "-out"))
+
+            println(s"begin writing ${path + fileName + extension} to ${path + fileName}-out")
+
+            groups.foreach { case (headWord, ngram) =>
+              writer.write(s"<<< ${headWord.name} >>>\n")
 
               ngram.foreach { case (words, occurrences) =>
-                println(s"${words}: ${occurrences}")
+                writer.write(s"${words.map(_.name).mkString(" && ")} && ${occurrences}\n")
               }
-
-              println("---------------")
             }
-            //val frontWriter = new PrintWriter(new File(sentencesWithFilename.fileName + "-front"))
-            //val backWriter  = new PrintWriter(new File(sentencesWithFilename.fileName + "-back"))
 
-          //  sentences.foreach { sentence =>
-          //    writeFragment(sentence.front, frontWriter)
-          //    writeFragment(sentence.back, backWriter)
-          //  }
-
-          //  frontWriter.close()
-          //  backWriter.close()
+            println(s"done writing ${path + fileName + extension} to ${path + fileName}-out")
+            writer.close()
           case Failure(ex) => throw ex
         }
       }
