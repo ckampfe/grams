@@ -5,6 +5,7 @@ import java.io.{PrintWriter, File}
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.io.{BufferedSource, Source}
+import scala.math.BigDecimal.RoundingMode
 import scala.util.{Failure, Success}
 
 /**
@@ -18,11 +19,11 @@ object MakeNgrams {
   def run(
     filesList: List[String]
   )(
-    f: List[(Future[Map[Symbol, List[(List[Symbol], Int)]]], String)] => Unit
+    f: List[(Future[Map[Symbol, List[(List[Symbol], BigDecimal)]]], String)] => Unit
   ): Unit = {
     val inputs: List[BufferedSource] = filesList.map { fileName => Source.fromFile(fileName) }
 
-    val ngrams: List[Future[Map[Symbol, List[(List[Symbol], Int)]]]] = inputs.map { file =>
+    val ngrams: List[Future[Map[Symbol, List[(List[Symbol], BigDecimal)]]]] = inputs.map { file =>
       makeFileString(file).
         flatMap(makeSentenceParser).
         flatMap(parseDocument).
@@ -32,7 +33,7 @@ object MakeNgrams {
         flatMap(sortOccurrences)
     }
 
-    val sentenceFilenamePairs: List[(Future[Map[Symbol, List[(List[Symbol], Int)]]], String)] =
+    val sentenceFilenamePairs: List[(Future[Map[Symbol, List[(List[Symbol], BigDecimal)]]], String)] =
       ngrams.zip(filesList)
 
     f(sentenceFilenamePairs)
@@ -49,24 +50,41 @@ object MakeNgrams {
   }
 
   def makeNgrams(sentences: List[List[String]]): Future[List[List[Symbol]]] = Future {
-    sentences.flatMap(trigrams)
+    sentences.flatMap(bigrams)
   }
 
   def groupNgramsByFirstWord(ngrams: List[List[Symbol]]): Future[Map[Symbol, List[List[Symbol]]]] = Future {
     Sentence.groupByFirstWord(ngrams)
   }
 
+  // TODO: make this function less horrendous
   def tallyOccurrences(
     ngramGroups: Map[Symbol, List[List[Symbol]]]
-  ): Future[Map[Symbol, List[(List[Symbol], Int)]]] = Future {
-    ngramGroups.mapValues { ngrams =>
-      ngrams.groupBy{ ngram => ngram }.map { case (headWord, ngramGroup) =>
+  ): Future[Map[Symbol, List[(List[Symbol], BigDecimal)]]] = Future {
+    // value we return is ((number of occurences of ngram) / (number of total ngrams in corpus) * 100)
+    // BigDecimal is used so we can print the literal without E notation
+
+    val lengthGroups: Map[Symbol, Map[List[Symbol], Int]] = ngramGroups.mapValues { ngrams =>
+      ngrams.groupBy { ngram => ngram}.map { case (headWord, ngramGroup) =>
         (headWord, ngramGroup.length)
-      }.toList
+      }
+    }
+
+    val totalOccurrences: BigDecimal = lengthGroups.values.flatMap { ngramList =>
+      // just the length
+      ngramList.map(_._2)
+      // and reduce
+    }.fold(0) { (acc, v) => acc + v }
+
+    lengthGroups.map { case (sym, ngramGroup) =>
+      (sym, ngramGroup.map { case (l, c) =>
+        Tuple2(l, (c / totalOccurrences).setScale(7, RoundingMode.UP) * 100)
+      }.toList)
     }
   }
 
-  def sortOccurrences(ngramGroups: Map[Symbol, List[(List[Symbol], Int)]]) = Future {
+  def sortOccurrences(ngramGroups: Map[Symbol, List[(List[Symbol], BigDecimal)]]) = Future {
+    // sort by proportion, desc
     ngramGroups.mapValues { ngramGroup =>
       ngramGroup.sortBy(_._2).reverse
     }
